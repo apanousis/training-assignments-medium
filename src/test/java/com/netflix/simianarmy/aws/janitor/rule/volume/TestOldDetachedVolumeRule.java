@@ -107,7 +107,7 @@ public class TestOldDetachedVolumeRule {
         int retentionDays = 4;
         DateTime userDate = new DateTime(now.plusDays(3).withTimeAtStartOfDay());
         resource.setTag(JanitorMonkey.JANITOR_TAG,
-                OldDetachedVolumeRule.TERMINATION_DATE_FORMATTER.print(userDate));
+                AbstractRule.TERMINATION_DATE_FORMATTER.print(userDate));
         OldDetachedVolumeRule rule = new OldDetachedVolumeRule(new TestMonkeyCalendar(),
                 ageThreshold, retentionDays);
         Assert.assertFalse(rule.isValid(resource));

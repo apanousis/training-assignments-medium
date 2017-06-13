@@ -89,7 +89,7 @@ public class RDSJanitorResourceTracker implements JanitorResourceTracker {
         this.table = table;
     }
 
-    private JdbcTemplate getJdbcTemplate() {
+    public JdbcTemplate getJdbcTemplate() {
         return jdbcTemplate;
     }
 
@@ -120,7 +120,7 @@ public class RDSJanitorResourceTracker implements JanitorResourceTracker {
         try {
             json = new ObjectMapper().writeValueAsString(additionalFieldsAsMap(resource));
         } catch (JsonProcessingException e) {
-            LOGGER.error("ERROR generating additional field JSON when saving resource " + resource.getId(), e);
+            LOGGER.error(String.format("ERROR generating additional field JSON when saving resource %s.", resource.getId()), e);
             return;
         }
 
@@ -134,47 +134,6 @@ public class RDSJanitorResourceTracker implements JanitorResourceTracker {
         }
 
         LOGGER.debug("Successfully saved.");
-    }
-
-    private void updateResource(Resource resource, String json) {
-        String updateQuery = createUpdateQuery();
-
-        LOGGER.debug(String.format("Update statement is '%s'", updateQuery));
-
-        int updated = this.jdbcTemplate.update(updateQuery, resource.getResourceType().toString(), value(resource.getRegion()), emailValue(resource.getOwnerEmail()),
-                value(resource.getDescription()), value(resource.getState().toString()), value(resource.getTerminationReason()), value(resource.getExpectedTerminationTime()),
-                value(resource.getActualTerminationTime()), value(resource.getNotificationTime()), value(resource.getLaunchTime()), value(resource.getMarkTime()), value(resource.isOptOutOfJanitor()),
-                json, resource.getId(), resource.getRegion());
-
-        LOGGER.debug(String.format("%d rows updated", updated));
-    }
-
-    private void insertResource(Resource resource, String json) {
-        String insertQuery = createInsertQuery();
-
-        LOGGER.debug("Insert statement is '{}'", insertQuery);
-
-        int updated = this.jdbcTemplate.update(insertQuery, resource.getId(), value(resource.getResourceType().toString()), value(resource.getRegion()),
-                emailValue(resource.getOwnerEmail()), value(resource.getDescription()), value(resource.getState().toString()), value(resource.getTerminationReason()),
-                value(resource.getExpectedTerminationTime()), value(resource.getActualTerminationTime()), value(resource.getNotificationTime()),
-                value(resource.getLaunchTime()), value(resource.getMarkTime()), value(resource.isOptOutOfJanitor()), json);
-
-        LOGGER.debug(String.format("%d rows inserted", updated));
-    }
-
-    private String createUpdateQuery() {
-        return String.format("update %s set %s=?,%s=?,%s=?,%s=?,%s=?,%s=?,%s=?,%s=?,%s=?,%s=?,%s=?,%s=?,%s=? where %s=? and %s=?", table,
-                AWSResource.FIELD_RESOURCE_TYPE, AWSResource.FIELD_REGION
-                , AWSResource.FIELD_OWNER_EMAIL, AWSResource.FIELD_DESCRIPTION, AWSResource.FIELD_STATE, AWSResource.FIELD_TERMINATION_REASON
-                , AWSResource.FIELD_EXPECTED_TERMINATION_TIME, AWSResource.FIELD_ACTUAL_TERMINATION_TIME, AWSResource.FIELD_NOTIFICATION_TIME, AWSResource.FIELD_LAUNCH_TIME
-                , AWSResource.FIELD_MARK_TIME, AWSResource.FIELD_OPT_OUT_OF_JANITOR, "additionalFields", AWSResource.FIELD_RESOURCE_ID, AWSResource.FIELD_REGION);
-    }
-
-    private String createInsertQuery() {
-        return String.format("insert into %s (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,additionalFields) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?)", table, AWSResource.FIELD_RESOURCE_ID
-                , AWSResource.FIELD_RESOURCE_TYPE, AWSResource.FIELD_REGION, AWSResource.FIELD_OWNER_EMAIL, AWSResource.FIELD_DESCRIPTION
-                , AWSResource.FIELD_STATE, AWSResource.FIELD_TERMINATION_REASON, AWSResource.FIELD_EXPECTED_TERMINATION_TIME, AWSResource.FIELD_ACTUAL_TERMINATION_TIME
-                , AWSResource.FIELD_NOTIFICATION_TIME, AWSResource.FIELD_LAUNCH_TIME, AWSResource.FIELD_MARK_TIME, AWSResource.FIELD_OPT_OUT_OF_JANITOR);
     }
 
     /**
@@ -200,12 +159,11 @@ public class RDSJanitorResourceTracker implements JanitorResourceTracker {
         args.add(resourceRegion);
 
         LOGGER.debug(String.format("Query is '%s'", query));
-        List<Resource> resources = jdbcTemplate.query(query.toString(), args.toArray(), new RowMapper<Resource>() {
+        return jdbcTemplate.query(query.toString(), args.toArray(), new RowMapper<Resource>() {
             public Resource mapRow(ResultSet rs, int rowNum) throws SQLException {
                 return mapResource(rs);
             }
         });
-        return resources;
     }
 
     private Resource mapResource(ResultSet rs) throws SQLException {
@@ -374,5 +332,46 @@ public class RDSJanitorResourceTracker implements JanitorResourceTracker {
             fields.put(key, resource.getAdditionalField(key));
         }
         return fields;
+    }
+
+    private void updateResource(Resource resource, String json) {
+        String updateQuery = createUpdateQuery();
+
+        LOGGER.debug(String.format("Update statement is '%s'", updateQuery));
+
+        int updated = this.jdbcTemplate.update(updateQuery, resource.getResourceType().toString(), value(resource.getRegion()), emailValue(resource.getOwnerEmail()),
+                value(resource.getDescription()), value(resource.getState().toString()), value(resource.getTerminationReason()), value(resource.getExpectedTerminationTime()),
+                value(resource.getActualTerminationTime()), value(resource.getNotificationTime()), value(resource.getLaunchTime()), value(resource.getMarkTime()), value(resource.isOptOutOfJanitor()),
+                json, resource.getId(), resource.getRegion());
+
+        LOGGER.debug(String.format("%d rows updated", updated));
+    }
+
+    private void insertResource(Resource resource, String json) {
+        String insertQuery = createInsertQuery();
+
+        LOGGER.debug("Insert statement is '{}'", insertQuery);
+
+        int updated = this.jdbcTemplate.update(insertQuery, resource.getId(), value(resource.getResourceType().toString()), value(resource.getRegion()),
+                emailValue(resource.getOwnerEmail()), value(resource.getDescription()), value(resource.getState().toString()), value(resource.getTerminationReason()),
+                value(resource.getExpectedTerminationTime()), value(resource.getActualTerminationTime()), value(resource.getNotificationTime()),
+                value(resource.getLaunchTime()), value(resource.getMarkTime()), value(resource.isOptOutOfJanitor()), json);
+
+        LOGGER.debug("{} rows inserted", updated);
+    }
+
+    private String createUpdateQuery() {
+        return String.format("update %s set %s=?,%s=?,%s=?,%s=?,%s=?,%s=?,%s=?,%s=?,%s=?,%s=?,%s=?,%s=?,%s=? where %s=? and %s=?", table,
+                AWSResource.FIELD_RESOURCE_TYPE, AWSResource.FIELD_REGION
+                , AWSResource.FIELD_OWNER_EMAIL, AWSResource.FIELD_DESCRIPTION, AWSResource.FIELD_STATE, AWSResource.FIELD_TERMINATION_REASON
+                , AWSResource.FIELD_EXPECTED_TERMINATION_TIME, AWSResource.FIELD_ACTUAL_TERMINATION_TIME, AWSResource.FIELD_NOTIFICATION_TIME, AWSResource.FIELD_LAUNCH_TIME
+                , AWSResource.FIELD_MARK_TIME, AWSResource.FIELD_OPT_OUT_OF_JANITOR, "additionalFields", AWSResource.FIELD_RESOURCE_ID, AWSResource.FIELD_REGION);
+    }
+
+    private String createInsertQuery() {
+        return String.format("insert into %s (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?)", table, AWSResource.FIELD_RESOURCE_ID
+                , AWSResource.FIELD_RESOURCE_TYPE, AWSResource.FIELD_REGION, AWSResource.FIELD_OWNER_EMAIL, AWSResource.FIELD_DESCRIPTION
+                , AWSResource.FIELD_STATE, AWSResource.FIELD_TERMINATION_REASON, AWSResource.FIELD_EXPECTED_TERMINATION_TIME, AWSResource.FIELD_ACTUAL_TERMINATION_TIME
+                , AWSResource.FIELD_NOTIFICATION_TIME, AWSResource.FIELD_LAUNCH_TIME, AWSResource.FIELD_MARK_TIME, AWSResource.FIELD_OPT_OUT_OF_JANITOR, "additionalFields");
     }
 }
